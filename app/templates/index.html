@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tumor Detection</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.104.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ami.js@0.23.0/build/ami.min.js"></script>
+</head>
+<body>
+    <h1>Tumor Detection and Analysis</h1>
+    <div class="container">
+        <div class="upload-section">
+            <h2>Upload MRI Scans</h2>
+            <p>Upload 4 modalities for a GLI scan, or 1 modality for a MEN-RT scan.</p>
+            <input type="file" id="file-input" accept=".nii,.nii.gz" multiple>
+            <button id="upload-button">Analyze Scan</button>
+        </div>
+        <div id="results-section" style="display:none;">
+            <h2>Analysis Results</h2>
+            <div id="tumor-info"></div>
+            <div class="views-container">
+                <div id="view-2d">
+                    <h3>2D Slice View</h3>
+                    <div id="slice-container"></div>
+                </div>
+                <div id="view-3d">
+                    <h3>3D Model View</h3>
+                    <div id="canvas-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
