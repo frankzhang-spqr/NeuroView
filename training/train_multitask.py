@@ -79,7 +79,7 @@ def plot_metrics(metrics_df, run_dir):
         plt.savefig(os.path.join(run_dir, f'{metric}_plot.png'))
         plt.close()
 
-def train_multitask(data_dir, epochs=25, batch_size=16, learning_rate=1e-4):
+def train_multitask(data_dir, epochs=5, batch_size=32, learning_rate=1e-4):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
