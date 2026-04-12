@@ -1,14 +1,18 @@
 document.getElementById('upload-button').addEventListener('click', async () => {
-    const fileInput = document.getElementById('file-input');
-    if (fileInput.files.length === 0) {
-        alert('Please select a file first.');
-        return;
-    }
-
-
+    const fileInputs = document.querySelectorAll('.file-input');
     const formData = new FormData();
-    for (const file of fileInput.files) {
-        formData.append('files', file);
+    let fileCount = 0;
+
+    fileInputs.forEach(input => {
+        if (input.files.length > 0) {
+            formData.append(input.id, input.files[0]);
+            fileCount++;
+        }
+    });
+
+    if (fileCount < 4) {
+        alert('Please upload all four modality files.');
+        return;
     }
 
     const response = await fetch('/predict', {
@@ -87,7 +91,6 @@ function init3DView(scanUrl) {
         });
 }
 
-
 function displayResults(results) {
     const resultsSection = document.getElementById('results-section');
     const tumorInfo = document.getElementById('tumor-info');
@@ -108,32 +111,55 @@ function displayResults(results) {
         document.getElementById('canvas-container').innerHTML = '<p>No 3D model to display.</p>';
     }
 
+    // Group slices by index
+    const slicesByIndex = {};
     results.slice_data.forEach(slice => {
-        const sliceDiv = document.createElement('div');
-        sliceDiv.className = 'slice';
-        if (slice.has_tumor) {
-            sliceDiv.style.borderColor = 'red';
+        if (!slicesByIndex[slice.slice_index]) {
+            slicesByIndex[slice.slice_index] = [];
         }
+        slicesByIndex[slice.slice_index].push(slice);
+    });
 
-        const img = document.createElement('img');
-        img.src = `data:image/png;base64,${slice.image}`;
-        sliceDiv.appendChild(img);
-
-        if (slice.bbox) {
-            const bboxDiv = document.createElement('div');
-            bboxDiv.className = 'bbox';
-            const scale = 150 / 240; // image size / original size
-            bboxDiv.style.left = `${slice.bbox[0] * scale}px`;
-            bboxDiv.style.top = `${slice.bbox[1] * scale}px`;
-            bboxDiv.style.width = `${slice.bbox[2] * scale}px`;
-            bboxDiv.style.height = `${slice.bbox[3] * scale}px`;
-            sliceDiv.appendChild(bboxDiv);
-        }
+    for (const index in slicesByIndex) {
+        const sliceGroup = document.createElement('div');
+        sliceGroup.className = 'slice-group';
         
         const sliceLabel = document.createElement('p');
-        sliceLabel.textContent = `Slice ${slice.slice_index}`;
-        sliceDiv.appendChild(sliceLabel);
+        sliceLabel.textContent = `Slice ${index}`;
+        sliceGroup.appendChild(sliceLabel);
 
-        sliceContainer.appendChild(sliceDiv);
-    });
+        const imageContainer = document.createElement('div');
+        imageContainer.className = 'image-container';
+        sliceGroup.appendChild(imageContainer);
+
+        slicesByIndex[index].forEach(slice => {
+            const sliceDiv = document.createElement('div');
+            sliceDiv.className = 'slice';
+            if (slice.has_tumor) {
+                sliceDiv.style.borderColor = 'red';
+            }
+
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${slice.image}`;
+            sliceDiv.appendChild(img);
+
+            if (slice.bbox) {
+                const bboxDiv = document.createElement('div');
+                bboxDiv.className = 'bbox';
+                const scale = 150 / 240; // image size / original size
+                bboxDiv.style.left = `${slice.bbox[0] * scale}px`;
+                bboxDiv.style.top = `${slice.bbox[1] * scale}px`;
+                bboxDiv.style.width = `${slice.bbox[2] * scale}px`;
+                bboxDiv.style.height = `${slice.bbox[3] * scale}px`;
+                sliceDiv.appendChild(bboxDiv);
+            }
+            
+            const modalityLabel = document.createElement('p');
+            modalityLabel.textContent = slice.modality;
+            sliceDiv.appendChild(modalityLabel);
+
+            imageContainer.appendChild(sliceDiv);
+        });
+        sliceContainer.appendChild(sliceGroup);
+    }
 }

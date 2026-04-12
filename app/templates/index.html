@@ -13,8 +13,25 @@
     <div class="container">
         <div class="upload-section">
             <h2>Upload MRI Scans</h2>
-            <p>Upload 4 modalities for a GLI scan, or 1 modality for a MEN-RT scan.</p>
-            <input type="file" id="file-input" accept=".nii,.nii.gz" multiple>
+            <p>Provide as many modalities as possible for the best result. If uploading only one, please use the <strong>t1c</strong> slot.</p>
+            <div class="upload-slots">
+                <div class="slot">
+                    <label for="t1c_file">T1-weighted contrast-enhanced (t1c):</label>
+                    <input type="file" id="t1c_file" class="file-input" accept=".nii,.nii.gz">
+                </div>
+                <div class="slot">
+                    <label for="t1n_file">T1-weighted native (t1n):</label>
+                    <input type="file" id="t1n_file" class="file-input" accept=".nii,.nii.gz">
+                </div>
+                <div class="slot">
+                    <label for="t2f_file">T2-weighted FLAIR (t2f):</label>
+                    <input type="file" id="t2f_file" class="file-input" accept=".nii,.nii.gz">
+                </div>
+                <div class="slot">
+                    <label for="t2w_file">T2-weighted (t2w):</label>
+                    <input type="file" id="t2w_file" class="file-input" accept=".nii,.nii.gz">
+                </div>
+            </div>
             <button id="upload-button">Analyze Scan</button>
         </div>
         <div id="results-section" style="display:none;">

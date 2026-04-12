@@ -74,7 +74,7 @@ class UNet(nn.Module):
         d4 = torch.cat([d4, s1], dim=1)
         d4 = self.d4(d4)
         
-        return torch.sigmoid(self.outconv(d4))
+        return self.outconv(d4)
 
 def build_model(in_channels=4, n_class=1):
     return UNet(in_channels, n_class)

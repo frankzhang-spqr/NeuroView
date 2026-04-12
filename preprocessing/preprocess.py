@@ -45,13 +45,12 @@ def process_and_save_slices(patient_folders, output_path, is_test=False):
     slice_counter = 0
     for patient_folder in tqdm(patient_folders, desc="Processing Patients"):
         try:
-            tumor_type = 'GLI' if 'GLI' in patient_folder else 'MEN-RT'
+            tumor_type = 'GLI' if 'GLI' in patient_folder else 'MEN'
             
             # Robustly find the ground truth file
-            seg_path = None
-            if tumor_type == 'GLI':
-                seg_path = find_file_by_substring(patient_folder, '-seg.nii.gz')
-            else: # MEN-RT
+            seg_path = find_file_by_substring(patient_folder, '-seg.nii.gz')
+            if not seg_path:
+                # Fallback for MEN scans which might use a different naming convention
                 seg_path = find_file_by_substring(patient_folder, '-GTV.nii.gz')
 
             if not seg_path:
@@ -59,17 +58,19 @@ def process_and_save_slices(patient_folders, output_path, is_test=False):
                 continue
 
             modalities_to_load = []
-            if tumor_type == 'GLI':
-                mod_types = ['t1c', 't1n', 't2f', 't2w']
-                for mod in mod_types:
-                    mod_path = find_file_by_substring(patient_folder, f'-{mod}.nii.gz')
-                    if mod_path:
-                        modalities_to_load.append(nib.load(mod_path).get_fdata())
-            else: # MEN-RT
-                # For MEN-RT, load all modalities except GTV
-                for f in os.listdir(patient_folder):
-                    if f.endswith('.nii.gz') and 'GTV' not in f:
-                        modalities_to_load.append(nib.load(os.path.join(patient_folder, f)).get_fdata())
+            mod_types = ['t1c', 't1n', 't2f', 't2w']
+            for mod in mod_types:
+                mod_path = find_file_by_substring(patient_folder, f'-{mod}.nii.gz')
+                if mod_path:
+                    modalities_to_load.append(nib.load(mod_path).get_fdata())
+                else:
+                    # If a modality is missing, we can't proceed with this patient
+                    print(f"Warning: Skipping {patient_folder} due to missing modality: {mod}")
+                    modalities_to_load = [] # Reset
+                    break
+            
+            if len(modalities_to_load) < 4:
+                continue
 
             if not modalities_to_load:
                 print(f"Warning: Skipping {patient_folder} as no required modalities were found.")
@@ -98,11 +99,6 @@ def process_and_save_slices(patient_folders, output_path, is_test=False):
                 slice_img = np.stack(resized_channels, axis=-1)
                 slice_seg = np.array(Image.fromarray(slice_seg).resize((240, 240), resample=Image.NEAREST))
 
-                num_channels = slice_img.shape[-1]
-                if num_channels < 4:
-                    padding = np.zeros((240, 240, 4 - num_channels))
-                    slice_img = np.concatenate([slice_img, padding], axis=-1)
-
                 slice_seg[slice_seg > 0] = 1
 
                 slice_filename = f"slice_{slice_counter}.npy"
@@ -122,10 +118,10 @@ def process_and_save_slices(patient_folders, output_path, is_test=False):
 
 if __name__ == '__main__':
     gli_path = 'BraTS/GLI/BraTS2024-BraTS-GLI-TrainingData/training_data1_v2'
-    men_rt_path = 'BraTS/MEN-RT'
+    men_path = 'BraTS/MEN' # Updated path
     output_path = 'data/processed_slices'
     
-    all_folders = get_patient_folders(gli_path) + get_patient_folders(men_rt_path)
+    all_folders = get_patient_folders(gli_path) + get_patient_folders(men_path)
     
     slice_counter = process_and_save_slices(all_folders, output_path)
     print(f"Processed and saved {slice_counter} slices.")
