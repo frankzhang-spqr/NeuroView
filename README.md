@@ -1,101 +1,96 @@
-# 3D Brain Tumor Segmentation and Classification
+# NeuroView MRI Technical Specification
+## Automated Volumetric MRI Analysis and Brain Tumor Segmentation Suite
 
-This project provides a complete pipeline for identifying and classifying brain tumors from 3D MRI scans. It includes a web-based application for easy interaction, allowing users to upload MRI scans and visualize the results in both 2D and 3D.
+NeuroView MRI is a high-performance desktop application designed for the clinical visualization of NIfTI-format MRI data and the automated identification of pathological regions using deep learning. This document provides a comprehensive technical overview of the system architecture, codebase, and deployment pipeline.
 
-## Features
+---
 
-- **Tumor Segmentation**: Identifies the presence and location of a tumor within the brain.
-- **Tumor Classification**: Classifies the detected tumor into one of two types: `GLI` (Glioma) or `MEN` (Meningioma).
-- **Interactive Web UI**: A user-friendly interface for uploading scans and viewing results.
-- **2D Slice Viewer**: Displays all four MRI modalities (`t1c`, `t1n`, `t2f`, `t2w`) for each slice, with a bounding box drawn around the tumor on affected slices.
-- **3D Model Viewer**: Renders an interactive 3D model of the brain with the tumor highlighted, providing spatial context.
+## 1. System Architecture
 
-## Project Structure
+NeuroView utilizes a decoupled architecture comprising a high-fidelity Graphical User Interface (GUI) and a specialized Computational Backend.
 
-```
-.
-├── app/                  # Contains the FastAPI web application
-│   ├── static/           # CSS and JavaScript files
-│   ├── templates/        # HTML templates
-│   └── main.py           # Backend logic for the web app
-├── data/                 # Data directory
-│   └── processed_slices/ # Stores preprocessed 2D slices for training
-├── models/               # Model definitions
-│   ├── model.py          # U-Net segmentation model
-│   └── classifier.py     # CNN classification model
-├── preprocessing/        # Data preprocessing scripts
-│   └── preprocess.py     # Script to convert 3D NIfTI scans to 2D slices
-├── training/             # Model training scripts
-│   └── train_multitask.py # Unified script for multi-task training
-├── best_model.pth        # Saved weights for the best segmentation model
-├── best_classifier.pth   # Saved weights for the best classification model
-├── requirements.txt      # Python dependencies
-└── README.md             # This file
-```
+### 1.1 Renderer Process (Electron/JavaScript)
+The frontend is built on the Electron framework, utilizing the Chromium rendering engine. It is responsible for:
+- **Volumetric Visualization**: Implementing a Three.js-based WebGL environment for real-time 3D raymarching.
+- **User Interface State**: Managing a complex state machine for multi-modal synchronization and analysis workflows.
+- **Asynchronous Communication**: Interfacing with the backend via a low-latency REST API and internal IPC bridges.
 
-## Setup and Installation
+### 1.2 Computational Service (Python/FastAPI)
+The backend is a high-performance Python service bundled as a native Windows executable. Its responsibilities include:
+- **NIfTI Processing**: utilizing the `nibabel` library to parse and manipulate complex medical imaging volumes.
+- **Numerical Normalization**: Implementing global volumetric intensity normalization to ensure clinical contrast across T1c, T1n, T2f, and T2w modalities.
+- **AI Inference Engine**: Running PyTorch-based UNet models for pixel-level tumor segmentation.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
+---
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-    ```
+## 2. Codebase Specification
 
-3.  **Install the required dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 2.1 Core Application Logic (main.js)
+The entry point for the Electron main process. This file manages the application lifecycle and secure system integration.
+- **Process Management**: Handles the instantiation and termination of the Python backend service, including PID tracking to prevent zombie processes.
+- **Native Interfacing**: Implements the native Windows menu system and high-level file system dialogs.
+- **Security Protocols**: Configures the context isolation and preload scripts to ensure the UI has no direct access to system-level Node.js APIs.
 
-## Data Preparation
+### 2.2 Backend Service Implementation (app/main.py)
+The primary service layer for the application.
+- **Endpoint Specification**: Defines RESTful routes for fetching normalized 32-bit floating-point volume data and segmented tumor masks.
+- **Resource Management**: Implements caching for NIfTI volumes to minimize I/O overhead during slice navigation.
+- **AI Integration**: Orchestrates the loading of weights from `.pth` files and the execution of the segmentation pipeline on the detected hardware (CPU or CUDA).
 
-The model is trained on the BraTS 2024 dataset. The data should be organized as follows, with each patient folder containing four NIfTI files corresponding to the four MRI modalities:
+### 2.3 UI & Rendering Engine (app/static/dashboard.js)
+The primary logic controller for the renderer process.
+- **WebGL Environment**: Initializes the Three.js scene, including the camera, lighting, and orbit controls.
+- **Raymarching Shaders**: Contains the GLSL fragment shaders used to perform volumetric rendering of the MRI data directly from binary buffers.
+- **Slice Synchronization**: Implements the logic that maps 2D coordinates from the Axial, Coronal, and Sagittal views to the 3D space of the volume renderer.
 
-```
-BraTS/
-├── GLI/
-│   └── ... (patient folders)
-└── MEN/
-    └── ... (patient folders)
-```
+### 2.4 Preload Integration (preload.js)
+A secure bridge that exposes a limited set of IPC capabilities to the frontend, allowing the dashboard to communicate with the Electron main process without compromising security.
 
-To preprocess the data for training, run the following command. This will process the raw NIfTI files and save them as 2D `.npy` slices in the `data/processed_slices` directory.
+### 2.5 Distribution Pipeline (build_dist.ps1)
+A PowerShell-based build automation script.
+- **Stage 1 (Cleanup)**: Ensures a deterministic build environment by purging all temporary artifacts.
+- **Stage 2 (Backend Compilation)**: Executes PyInstaller with specific hooks to bundle the PyTorch engine, including aggressive pruning of training-only libraries to optimize disk footprint.
+- **Stage 3 (Resource Preparation)**: Manually constructs the application bundle folder, ensuring all static assets and AI weights are in the correct relative paths.
+- **Stage 4 (Multi-Part Packaging)**: Compresses the application into a high-speed `.7z` archive and prepares the `Setup.bat` installer.
 
-```bash
-python preprocessing/preprocess.py
-```
+---
 
-## Model Training
+## 3. Data Processing & AI Methodology
 
-The project uses a multi-task learning approach to train the segmentation and classification models simultaneously. To start the training process, run the unified training script:
+### 3.1 Volumetric Normalization
+To ensure the AI models receive consistent data, the backend performs global intensity normalization on every loaded volume. This process transforms the raw Hounsfield or intensity units into a standardized 0-1 floating-point range, preserving the relative contrast necessary for accurate pathological identification.
 
-```bash
-python training/train_multitask.py
-```
+### 3.2 UNet Segmentation
+The AI engine utilizes a deep Convolutional Neural Network based on the UNet architecture.
+- **Multi-Modal Input**: The model accepts 4 input channels (T1c, T1n, T2f, T2w) to provide a holistic view of the brain tissue.
+- **Inference Pipeline**: The system performs automated brain-masking, cropping, and 3D-to-2D projection before executing the segmentation model.
+- **Post-Processing**: The resulting probability masks are thresholded and converted into color-coded overlays for the final user display.
 
-This script will:
-- Load the preprocessed data.
-- Train both the U-Net segmentation model and the CNN classification model.
-- Validate the models and save the best-performing weights to `best_model.pth` and `best_classifier.pth`.
+---
 
-## Running the Application
+## 4. Hardware and Software Requirements
 
-Once the models are trained, you can launch the web application:
+### 4.1 System Requirements
+- **Operating System**: Windows 10 or 11 (64-bit).
+- **Processor**: Intel Core i5 (8th Gen) or AMD Ryzen 5 minimum.
+- **Memory**: 8GB RAM (16GB highly recommended for 3D volume rendering).
+- **Graphics**: Integrated graphics supported; NVIDIA GPU with CUDA support recommended for accelerated AI inference.
 
-```bash
-uvicorn app.main:app --reload
-```
+### 4.2 Software Dependencies
+- **Runtime**: Electron 41.2.1, Python 3.9 (bundled).
+- **Medical Libraries**: Nibabel, NumPy, Scikit-Image.
+- **AI Framework**: PyTorch 2.0+.
 
-Navigate to `http://127.0.0.1:8000` in your web browser.
+---
 
-### How to Use the App
+## 5. Deployment and Installation
 
-1.  The interface provides four labeled upload slots, one for each required MRI modality (`t1c`, `t1n`, `t2f`, `t2w`).
-2.  Select the corresponding NIfTI file for each slot.
-3.  Click the "Analyze Scan" button.
-4.  The application will process the scans and display the results, including the tumor type, a 3D model, and a 2D slice-by-slice view with bounding boxes.
+NeuroView is distributed as a multi-part installation package to ensure stability across all Windows environments.
+1. **Extraction**: The user extracts the distribution ZIP folder.
+2. **Setup**: The user executes `Setup.bat`, which runs a PowerShell installation script.
+3. **Integration**: The script installs the app to the local AppData directory, creates Start Menu shortcuts, and registers the application for searchability.
+
+---
+
+© 2026 NeuroView Team. All Rights Reserved.
+Technical manual version 1.0.0.

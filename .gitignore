@@ -1,10 +1,31 @@
-BraTS/
-preprocessing/__pycache__/
-training/__pycache__/
-models/__pycache__/
-app/__pycache__/
-app/static/scans/
-data/processed_slices/
-.idea/
+# Build and distribution
+dist/
+build/
+dist-electron/
+*.spec
+sfx_config.txt
+Setup.bat
+install.ps1
+data.7z
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+build_log.txt
+build_err.txt
+
+# Massive Binaries (Too large for Git)
 *.pth
+*.nii.gz
+app/static/scans/
+BraTS/
 training_runs/
+data/processed_slices/
+
+# Environment and IDE
+.env
+.vscode/
+.idea/
+node_modules/
+package-lock.json

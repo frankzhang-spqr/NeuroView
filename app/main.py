@@ -39,13 +39,19 @@ classifier_model.eval()
 analysis_cache: Dict[str, dict] = {}
 
 def preprocess_slice(slice_img):
+    # slice_img is (H, W, 4) with values in [0, 1]
+    # We must resize each channel individually and maintain float precision
+    h, w, c = slice_img.shape
     resized_channels = []
-    for c in range(slice_img.shape[-1]):
-        resized_channels.append(np.array(Image.fromarray(slice_img[..., c]).resize((240, 240))))
+    for i in range(c):
+        # Use bilinear interpolation for the brain data
+        ch_img = Image.fromarray(slice_img[..., i])
+        resized_ch = np.array(ch_img.resize((240, 240), resample=Image.Resampling.BILINEAR))
+        resized_channels.append(resized_ch)
     
-    slice_img = np.stack(resized_channels, axis=-1)
-
-    return torch.from_numpy(slice_img).float().permute(2, 0, 1).unsqueeze(0)
+    # Stack back to (4, 240, 240) for the model
+    slice_tensor = np.stack(resized_channels, axis=0) # (4, 240, 240)
+    return torch.from_numpy(slice_tensor).float().unsqueeze(0)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -123,12 +129,17 @@ def build_slice_preview(img_data, mask_volume, axis, index, image_size=240):
     has_tumor = bool(np.any(mask_slice))
 
     for c, modality in enumerate(ordered_modalities):
+        # We use the globally normalized [0, 1] data and just scale to 255
+        # This preserves the relative intensities between T1, T2, etc.
         image_slice = extract_axis_slice(img_data[:, :, :, c], axis, index)
         image_slice = to_display_orientation(image_slice)
-        image_slice = normalize_to_uint8(image_slice)
+        
+        # Scale to 0-255 but DON'T re-normalize min/max per slice
+        display_img = (image_slice * 255).astype(np.uint8)
+        
         previews.append({
             "modality": modality,
-            "image": encode_png(image_slice, size=image_size),
+            "image": encode_png(display_img, size=image_size),
             "bbox": bbox,
             "has_tumor": has_tumor,
         })
@@ -150,8 +161,13 @@ def sample_point_cloud(volume, *, mask=None, max_points=14000, min_points=1000):
         non_zero = source[source > 0]
         if non_zero.size == 0:
             return []
-        threshold = float(np.percentile(non_zero, 65))
-        coords = np.argwhere(source >= threshold)
+        
+        # Robust thresholding: try 65th, fall back to 45th, then 25th if needed
+        for p in [65, 45, 25]:
+            threshold = float(np.percentile(non_zero, p))
+            coords = np.argwhere(source >= threshold)
+            if len(coords) >= min_points:
+                break
 
     if coords.size == 0:
         return []
@@ -319,3 +335,55 @@ async def slice_stack(
         previews.append(build_slice_preview(cached["img_data"], cached["mask_volume"], axis, slice_index, image_size=64))
 
     return {"axis": axis, "items": previews}
+
+
+@app.get("/volume-preview/{scan_id}")
+async def volume_preview(
+    scan_id: str,
+    modality: str = Query(..., pattern="^(t1c|t1n|t2f|t2w)$"),
+):
+    print(f"DEBUG: Volume preview request for scan_id={scan_id}, modality={modality}")
+    cached = analysis_cache.get(scan_id)
+    if cached is None:
+        print(f"DEBUG: Cache MISS for scan_id={scan_id}. Available IDs: {list(analysis_cache.keys())}")
+        return JSONResponse({"error": "Scan session expired."}, status_code=404)
+
+    print(f"DEBUG: Cache HIT for scan_id={scan_id}")
+
+    ordered_modalities = ["t1c", "t1n", "t2f", "t2w"]
+    modality_index = ordered_modalities.index(modality)
+    img_data = cached["img_data"]
+    mask_volume = cached["mask_volume"]
+
+    return {
+        "scan_id": scan_id,
+        "modality": modality,
+        "volume_points": {
+            "brain": sample_point_cloud(img_data[:, :, :, modality_index], max_points=18000, min_points=4000),
+            "tumor": sample_point_cloud(mask_volume, mask=mask_volume > 0, max_points=6000, min_points=0),
+        }
+    }
+
+
+@app.get("/volume-binary/{scan_id}")
+async def volume_binary(
+    scan_id: str,
+    modality: str = Query(..., pattern="^(t1c|t1n|t2f|t2w|mask)$"),
+):
+    cached = analysis_cache.get(scan_id)
+    if cached is None:
+        return JSONResponse({"error": "Scan session expired."}, status_code=404)
+
+    if modality == "mask":
+        data = cached["mask_volume"]
+    else:
+        ordered_modalities = ["t1c", "t1n", "t2f", "t2w"]
+        modality_index = ordered_modalities.index(modality)
+        data = cached["img_data"][:, :, :, modality_index]
+
+    # Flatten to Uint8 for DataTexture3D
+    # data is in range [0, 1] for modalities, [0, 1] for mask
+    binary_data = (data * 255).astype(np.uint8).tobytes()
+    
+    from fastapi.responses import Response
+    return Response(content=binary_data, media_type="application/octet-stream")

@@ -9,124 +9,216 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.104.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
-    <div class="app-shell">
-        <header class="topbar">
-            <div class="brand">
-                <div class="brand-mark" aria-hidden="true">
-                    <svg viewBox="0 0 48 48" fill="none">
-                        <path d="M4 24h8l4-10 6 20 6-16 4 6h12" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <div class="brand-copy">
-                    <h1>NeuroView MRI</h1>
-                    <p>Brain Tumor Detection</p>
+    <div class="app-desktop">
+
+        <!-- ═══════ TOOLBAR RIBBON ═══════ -->
+        <div class="toolbar" id="toolbar">
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="tb-open" title="Open Scan Files (Ctrl+O)">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M3 5c0-1.1.9-2 2-2h3.17a2 2 0 0 1 1.41.59l.83.82c.37.38.88.59 1.42.59H15a2 2 0 0 1 2 2v1H5a2 2 0 0 0-2 2v0M3 5v8a2 2 0 0 0 2 2h10.34a2 2 0 0 0 1.93-1.47L19 8.53A1 1 0 0 0 18.03 7H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Open</span>
+                </button>
+                <button class="toolbar-btn" id="tb-reset" title="Reset Workspace (Ctrl+R)">
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M3 10a7 7 0 0 1 13.07-3.5M17 10a7 7 0 0 1-13.07 3.5M3 3v4h4M17 17v-4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Reset</span>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn accent" id="tb-analyze" title="Run Analysis (Ctrl+Shift+A)" disabled>
+                    <svg viewBox="0 0 20 20" fill="none"><path d="M10 2v4M10 14v4M4 10H2M18 10h-2M5.05 5.05 3.64 3.64M16.36 16.36l-1.42-1.42M5.05 14.95l-1.41 1.41M16.36 3.64l-1.42 1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+                    <span>Analyze</span>
+                </button>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <div class="toolbar-axis-group">
+                    <span class="toolbar-label">Axis</span>
+                    <button class="axis-btn active" data-axis="axial" title="Axial (Alt+1)">AXI</button>
+                    <button class="axis-btn" data-axis="coronal" title="Coronal (Alt+2)">COR</button>
+                    <button class="axis-btn" data-axis="sagittal" title="Sagittal (Alt+3)">SAG</button>
                 </div>
             </div>
-            <div class="topbar-actions">
-                <button class="ghost-chip active" type="button">Results</button>
-                <button class="ghost-chip" type="button">Volume</button>
-                <button class="ghost-button" id="reset-dashboard" type="button">New Scan</button>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <div class="toolbar-modality-group">
+                    <span class="toolbar-label">Volume</span>
+                    <button class="modality-tab active" data-modality="t1c">T1C</button>
+                    <button class="modality-tab" data-modality="t1n">T1N</button>
+                    <button class="modality-tab" data-modality="t2f">T2F</button>
+                    <button class="modality-tab" data-modality="t2w">T2W</button>
+                </div>
             </div>
-        </header>
 
-        <main class="workspace">
-            <aside class="panel panel-upload">
-                <div class="panel-header">
-                    <div class="panel-title-row">
-                        <span class="status-dot"></span>
-                        <h2>MRI Upload</h2>
-                    </div>
-                    <p><span id="file-count">0</span>/4 files</p>
-                </div>
+            <div class="toolbar-spacer"></div>
 
-                <div class="modality-list">
-                    <label class="modality-card" for="t1c_file">
-                        <input type="file" id="t1c_file" class="file-input" accept=".nii,.nii.gz" hidden>
-                        <div class="modality-badge cyan">T1c</div>
-                        <div class="modality-copy">
-                            <strong>T1 Contrast-Enhanced</strong>
-                            <span>Best for tumor detection</span>
-                            <small class="file-name" id="t1c_name">Choose NIfTI file</small>
-                        </div>
-                        <div class="upload-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M12 16V4m0 0-4 4m4-4 4 4M5 14v4h14v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                    </label>
+            <div class="toolbar-group">
+                <span class="toolbar-label">Panels</span>
+                <button class="toolbar-btn panel-toggle active" id="tb-toggle-3d" title="Toggle 3D Volume Panel">
+                    <svg viewBox="0 0 16 16" fill="none"><path d="m8 1 6 3.4v7.2L8 15 2 11.6V4.4L8 1Zm0 0v7m6-3.6-6 3.6m0 0-6-3.6" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    <span>3D</span>
+                </button>
+                <button class="toolbar-btn panel-toggle active" id="tb-toggle-slices" title="Toggle Slice Viewer Panel">
+                    <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M1.5 8h13M8 1.5v13" stroke="currentColor" stroke-width="1.2"/></svg>
+                    <span>Slices</span>
+                </button>
+            </div>
 
-                    <label class="modality-card" for="t1n_file">
-                        <input type="file" id="t1n_file" class="file-input" accept=".nii,.nii.gz" hidden>
-                        <div class="modality-badge lilac">T1n</div>
-                        <div class="modality-copy">
-                            <strong>T1 Native</strong>
-                            <span>Baseline anatomy</span>
-                            <small class="file-name" id="t1n_name">Choose NIfTI file</small>
-                        </div>
-                        <div class="upload-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M12 16V4m0 0-4 4m4-4 4 4M5 14v4h14v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                    </label>
+            <div class="toolbar-separator"></div>
 
-                    <label class="modality-card" for="t2f_file">
-                        <input type="file" id="t2f_file" class="file-input" accept=".nii,.nii.gz" hidden>
-                        <div class="modality-badge green">T2f</div>
-                        <div class="modality-copy">
-                            <strong>T2 FLAIR</strong>
-                            <span>Edema and lesions</span>
-                            <small class="file-name" id="t2f_name">Choose NIfTI file</small>
-                        </div>
-                        <div class="upload-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M12 16V4m0 0-4 4m4-4 4 4M5 14v4h14v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                    </label>
+            <div class="toolbar-group">
+                <span class="toolbar-label">3D Mode</span>
+                <button class="toolbar-btn view-mode-btn active" data-mode="dots" title="Point Cloud Mode">
+                    <svg viewBox="0 0 16 16" fill="none"><circle cx="4" cy="4" r="1" fill="currentColor"/><circle cx="8" cy="4" r="1" fill="currentColor"/><circle cx="12" cy="4" r="1" fill="currentColor"/><circle cx="4" cy="8" r="1" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="8" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="8" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+                    <span>Dots</span>
+                </button>
+                <button class="toolbar-btn view-mode-btn" data-mode="volume" title="Volume Rendering Mode">
+                    <svg viewBox="0 0 16 16" fill="none"><path d="M3 3h10v10H3zM1 1h14v14H1z" stroke="currentColor" stroke-width="1"/><path d="M5 5h6v6H5z" fill="currentColor" fill-opacity="0.3"/></svg>
+                    <span>Volume</span>
+                </button>
+            </div>
 
-                    <label class="modality-card" for="t2w_file">
-                        <input type="file" id="t2w_file" class="file-input" accept=".nii,.nii.gz" hidden>
-                        <div class="modality-badge orange">T2w</div>
-                        <div class="modality-copy">
-                            <strong>T2 Weighted</strong>
-                            <span>Fluid contrast</span>
-                            <small class="file-name" id="t2w_name">Choose NIfTI file</small>
-                        </div>
-                        <div class="upload-icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M12 16V4m0 0-4 4m4-4 4 4M5 14v4h14v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                    </label>
-                </div>
+            <div class="toolbar-separator"></div>
 
-                <div class="panel-footer">
-                    <p class="helper-text">Upload all 4 NIfTI (.nii / .nii.gz) files for complete analysis.</p>
-                    <button id="upload-button" class="primary-button" type="button" disabled>Analyze Scan</button>
+            <div class="toolbar-group">
+                <button class="toolbar-btn icon-only" id="tb-toggle-sidebar" title="Toggle Sidebar (Ctrl+B)">
+                    <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 3v14" stroke="currentColor" stroke-width="1.5"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ═══════ MAIN LAYOUT ═══════ -->
+        <div class="desktop-body">
+
+            <!-- ── LEFT SIDEBAR ── -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-inner">
+
+                    <!-- Upload Section -->
+                    <section class="sb-section" id="sb-upload">
+                        <div class="sb-section-header">
+                            <div class="sb-section-title">
+                                <span class="sb-dot"></span>
+                                <h3>MRI Upload</h3>
+                            </div>
+                            <span class="sb-badge" id="file-count-badge">0 / 4</span>
+                        </div>
+                        <div class="sb-section-body">
+                            <label class="upload-slot" for="t1c_file">
+                                <input type="file" id="t1c_file" class="file-input" accept=".nii,.nii.gz" hidden>
+                                <span class="slot-badge cyan">T1c</span>
+                                <div class="slot-info">
+                                    <strong>T1 Contrast-Enhanced</strong>
+                                    <small class="file-name" id="t1c_name">No file selected</small>
+                                </div>
+                                <span class="slot-status" id="t1c_status">
+                                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 12V4m0 0L5 7m3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </label>
+                            <label class="upload-slot" for="t1n_file">
+                                <input type="file" id="t1n_file" class="file-input" accept=".nii,.nii.gz" hidden>
+                                <span class="slot-badge lilac">T1n</span>
+                                <div class="slot-info">
+                                    <strong>T1 Native</strong>
+                                    <small class="file-name" id="t1n_name">No file selected</small>
+                                </div>
+                                <span class="slot-status" id="t1n_status">
+                                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 12V4m0 0L5 7m3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </label>
+                            <label class="upload-slot" for="t2f_file">
+                                <input type="file" id="t2f_file" class="file-input" accept=".nii,.nii.gz" hidden>
+                                <span class="slot-badge green">T2f</span>
+                                <div class="slot-info">
+                                    <strong>T2 FLAIR</strong>
+                                    <small class="file-name" id="t2f_name">No file selected</small>
+                                </div>
+                                <span class="slot-status" id="t2f_status">
+                                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 12V4m0 0L5 7m3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </label>
+                            <label class="upload-slot" for="t2w_file">
+                                <input type="file" id="t2w_file" class="file-input" accept=".nii,.nii.gz" hidden>
+                                <span class="slot-badge orange">T2w</span>
+                                <div class="slot-info">
+                                    <strong>T2 Weighted</strong>
+                                    <small class="file-name" id="t2w_name">No file selected</small>
+                                </div>
+                                <span class="slot-status" id="t2w_status">
+                                    <svg viewBox="0 0 16 16" fill="none"><path d="M8 12V4m0 0L5 7m3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <!-- Results Section -->
+                    <section class="sb-section" id="sb-results">
+                        <div class="sb-section-header">
+                            <div class="sb-section-title">
+                                <svg class="sb-icon" viewBox="0 0 18 18" fill="none"><path d="M9 1.5a4.5 4.5 0 0 0-4.5 4.5v1A3.5 3.5 0 0 0 2 10.5a3.5 3.5 0 0 0 3.5 3.5H7v1.5A3 3 0 0 0 10 18.5M9 1.5v8m5-5.5a4.5 4.5 0 0 1 0 9H12v1.5A3 3 0 0 1 8 18.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <h3>Analysis</h3>
+                            </div>
+                        </div>
+                        <div class="sb-section-body">
+                            <div id="tumor-summary" class="result-card neutral">
+                                <div class="result-card-icon">?</div>
+                                <div class="result-card-body">
+                                    <strong>Awaiting Scan</strong>
+                                    <p>Upload all 4 modalities and run analysis.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Tumor Slices Section -->
+                    <section class="sb-section" id="sb-tumor-slices">
+                        <div class="sb-section-header">
+                            <div class="sb-section-title">
+                                <h3>Tumor Slices</h3>
+                            </div>
+                        </div>
+                        <div class="sb-section-body">
+                            <div id="tumor-slices" class="pill-list">
+                                <span class="empty-pill">No slices yet</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Modality Legend -->
+                    <section class="sb-section sb-section-compact">
+                        <div class="sb-section-header">
+                            <div class="sb-section-title"><h3>Modalities</h3></div>
+                        </div>
+                        <div class="sb-section-body">
+                            <div class="legend-row">
+                                <span class="legend-dot cyan"></span><span>T1C</span>
+                                <span class="legend-dot lilac"></span><span>T1N</span>
+                                <span class="legend-dot green"></span><span>T2F</span>
+                                <span class="legend-dot orange"></span><span>T2W</span>
+                            </div>
+                        </div>
+                    </section>
+
+
                 </div>
             </aside>
 
-            <section class="panel panel-visuals">
-                <div class="visuals-header">
-                    <div class="panel-title-row">
-                        <div class="cube-mark" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="m12 2 8 4.5v11L12 22 4 17.5v-11L12 2Zm0 0v9.5m8-5-8 5m0 0-8-5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
+            <!-- ── MAIN CONTENT ── -->
+            <main class="main-content" id="main-content">
+
+                <!-- 3D Volume Viewer -->
+                <section class="content-panel panel-3d" id="panel-volume">
+                    <div class="content-panel-header">
+                        <svg class="cpanel-icon" viewBox="0 0 20 20" fill="none"><path d="m10 1 8 4.5v9L10 19 2 14.5v-9L10 1Zm0 0v8.5m8-4.5-8 4.5m0 0-8-4.5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
                         <h2>3D Volume</h2>
                     </div>
-                    <div class="segmented-tabs">
-                        <button class="segmented-tab active" type="button">T1C</button>
-                        <button class="segmented-tab" type="button">T1N</button>
-                        <button class="segmented-tab" type="button">T2F</button>
-                        <button class="segmented-tab" type="button">T2W</button>
-                    </div>
-                </div>
-
-                <div class="visuals-body">
-                    <div class="volume-stage">
+                    <div class="panel-fill">
                         <div id="canvas-container">
                             <div class="empty-state">
                                 <div class="empty-icon" aria-hidden="true">
@@ -135,115 +227,110 @@
                                     </svg>
                                 </div>
                                 <h3>Upload MRI Scans</h3>
-                                <p>Complete the four modality inputs to generate the volume and slice review workspace.</p>
+                                <p>Upload all four modalities to generate the 3D volume preview.</p>
                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <div class="slice-review">
-                        <div class="slice-toolbar">
-                            <div class="slice-orientation">
-                                <button class="axis-pill active" data-axis="axial" type="button">AXI</button>
-                                <button class="axis-pill" data-axis="coronal" type="button">COR</button>
-                                <button class="axis-pill" data-axis="sagittal" type="button">SAG</button>
-                            </div>
-                            <div class="slider-readout">
-                                <span>B</span>
-                                <input type="range" min="0" max="100" value="48" disabled>
-                                <span>C</span>
-                                <input type="range" min="0" max="100" value="44" disabled>
-                            </div>
-                        </div>
-
+                <!-- Slice Viewer -->
+                <section class="content-panel panel-slices" id="panel-slices">
+                    <div class="content-panel-header">
+                        <svg class="cpanel-icon" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 10h16M10 2v16" stroke="currentColor" stroke-width="1.4"/></svg>
+                        <h2>Slice Viewer</h2>
+                    </div>
+                    <div class="panel-fill">
                         <div id="slice-grid" class="slice-grid">
                             <div class="slice-panel placeholder">
                                 <span class="slice-label cyan">T1 Contrast</span>
-                                <div class="slice-frame">
-                                    <p>Awaiting data</p>
-                                </div>
+                                <div class="slice-frame"><p>Awaiting data</p></div>
                             </div>
                             <div class="slice-panel placeholder">
                                 <span class="slice-label lilac">T1 Native</span>
-                                <div class="slice-frame">
-                                    <p>Awaiting data</p>
-                                </div>
+                                <div class="slice-frame"><p>Awaiting data</p></div>
                             </div>
                             <div class="slice-panel placeholder">
                                 <span class="slice-label green">T2 FLAIR</span>
-                                <div class="slice-frame">
-                                    <p>Awaiting data</p>
-                                </div>
+                                <div class="slice-frame"><p>Awaiting data</p></div>
                             </div>
                             <div class="slice-panel placeholder">
                                 <span class="slice-label orange">T2 Weighted</span>
-                                <div class="slice-frame">
-                                    <p>Awaiting data</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="slice-footer">
-                            <button class="nav-button" id="prev-slice" type="button" aria-label="Previous slice">&#8249;</button>
-                            <input id="slice-slider" type="range" min="0" max="0" value="0" disabled>
-                            <button class="nav-button" id="next-slice" type="button" aria-label="Next slice">&#8250;</button>
-                            <div class="slice-counter">
-                                <span id="slice-counter">0 / 0</span>
-                                <span id="slice-counter-status">NO DATA</span>
+                                <div class="slice-frame"><p>Awaiting data</p></div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            <aside class="panel panel-results">
-                <div class="panel-header">
-                    <div class="panel-title-row">
-                        <div class="brain-mark" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M9.5 4a3.5 3.5 0 0 0-3.5 3.5V9a3 3 0 0 0-2 2.8A3.2 3.2 0 0 0 7.2 15H8v1.2A3.8 3.8 0 0 0 11.8 20H12m0-16v16m2.5-16A3.5 3.5 0 0 1 18 7.5V9a3 3 0 0 1 2 2.8A3.2 3.2 0 0 1 16.8 15H16v1.2A3.8 3.8 0 0 1 12.2 20H12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                        <h2>Analysis Results</h2>
-                    </div>
-                </div>
-
-                <div id="tumor-summary" class="summary-card neutral">
-                    <div class="summary-icon" aria-hidden="true">!</div>
-                    <div>
-                        <strong>Awaiting Analysis</strong>
-                        <p>Upload all modalities to run detection and populate the review panels.</p>
-                    </div>
-                </div>
-
-                <section class="results-block">
-                    <div class="results-label">Tumor Slices</div>
-                    <div id="tumor-slices" class="tumor-slice-pills">
-                        <span class="empty-pill">No slices yet</span>
+                    <div class="slice-nav-bar">
+                        <button class="nav-btn" id="prev-slice" type="button" aria-label="Previous slice" title="Previous slice">
+                            <svg viewBox="0 0 16 16" fill="none"><path d="M10 12 6 8l4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <input id="slice-slider" type="range" min="0" max="0" value="0" disabled class="slice-range">
+                        <button class="nav-btn" id="next-slice" type="button" aria-label="Next slice" title="Next slice">
+                            <svg viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <span class="slice-readout">
+                            <span id="slice-counter">0 / 0</span>
+                            <span class="slice-status-dot" id="slice-status-indicator"></span>
+                            <span id="slice-counter-status">NO DATA</span>
+                        </span>
                     </div>
                 </section>
 
-                <section class="results-block">
-                    <div class="results-label">Modalities</div>
-                    <div class="legend-bar">
-                        <span class="legend-chip cyan">T1C</span>
-                        <span class="legend-chip lilac">T1N</span>
-                        <span class="legend-chip green">T2F</span>
-                        <span class="legend-chip orange">T2W</span>
-                    </div>
-                </section>
+            </main>
+        </div>
 
-                <section class="results-block slice-stack-block">
-                    <div class="results-label">Slice Stack</div>
-                    <div id="slice-stack" class="slice-stack">
-                        <div class="stack-card empty">
-                            <p>Slice cards will appear here after analysis.</p>
-                        </div>
-                    </div>
-                </section>
-            </aside>
-        </main>
+        <!-- ═══════ STATUS BAR ═══════ -->
+        <footer class="status-bar" id="status-bar">
+            <div class="status-left">
+                <span class="status-item">
+                    <span class="status-indicator" id="status-indicator"></span>
+                    <span id="status-text">Ready</span>
+                </span>
+                <span class="status-sep">│</span>
+                <span class="status-item" id="status-axis">Axis: Axial</span>
+            </div>
+            <div class="status-right">
+                <span class="status-item" id="status-slice">Slice: —</span>
+                <span class="status-sep">│</span>
+                <span class="status-item" id="status-files">Files: 0/4</span>
+                <span class="status-sep">│</span>
+                <span class="status-item">NeuroView MRI v1.0</span>
+            </div>
+        </footer>
+
     </div>
 
-    <script src="/static/dashboard.js?v=1.1"></script>
+    <!-- ═══════ SHORTCUTS MODAL ═══════ -->
+    <dialog id="shortcuts-dialog" class="shortcuts-modal">
+        <div class="shortcuts-content">
+            <div class="shortcuts-header">
+                <h2>Keyboard Shortcuts</h2>
+                <button class="close-modal-btn" id="close-shortcuts">✕</button>
+            </div>
+            <div class="shortcuts-body">
+                <div class="shortcut-group">
+                    <h4>File</h4>
+                    <div class="shortcut-row"><span>Open Scan Files</span><kbd>Ctrl+O</kbd></div>
+                    <div class="shortcut-row"><span>Reset Workspace</span><kbd>Ctrl+R</kbd></div>
+                    <div class="shortcut-row"><span>Export Results</span><kbd>Ctrl+E</kbd></div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>View</h4>
+                    <div class="shortcut-row"><span>Toggle Sidebar</span><kbd>Ctrl+B</kbd></div>
+                    <div class="shortcut-row"><span>Toggle Status Bar</span><kbd>Ctrl+J</kbd></div>
+                    <div class="shortcut-row"><span>Full Screen</span><kbd>F11</kbd></div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>Tools</h4>
+                    <div class="shortcut-row"><span>Run Analysis</span><kbd>Ctrl+Shift+A</kbd></div>
+                    <div class="shortcut-row"><span>Axial View</span><kbd>Alt+1</kbd></div>
+                    <div class="shortcut-row"><span>Coronal View</span><kbd>Alt+2</kbd></div>
+                    <div class="shortcut-row"><span>Sagittal View</span><kbd>Alt+3</kbd></div>
+                    <div class="shortcut-row"><span>Toggle Overlay</span><kbd>Ctrl+T</kbd></div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="/static/dashboard.js?v=2.0"></script>
 </body>
 </html>

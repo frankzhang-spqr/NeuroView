@@ -1,0 +1,68 @@
+{
+  "name": "ism",
+  "version": "1.0.0",
+  "description": "This project provides a complete pipeline for identifying and classifying brain tumors from 3D MRI scans. It includes a web-based application for easy interaction, allowing users to upload MRI scans and visualize the results in both 2D and 3D.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frankzhang-spqr/ISM2D.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/frankzhang-spqr/ISM2D/issues"
+  },
+  "homepage": "https://github.com/frankzhang-spqr/ISM2D#readme",
+  "devDependencies": {
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.neuroview.mri",
+    "productName": "NeuroView MRI",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "app/static/icon.png"
+    },
+    "extraResources": [
+      {
+        "from": "build/app_bundle/neuroview_backend",
+        "to": "neuroview_backend",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "app",
+        "to": "app",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": ".",
+        "to": ".",
+        "filter": [
+          "best_model.pth",
+          "best_classifier.pth"
+        ]
+      }
+    ]
+  }
+}
