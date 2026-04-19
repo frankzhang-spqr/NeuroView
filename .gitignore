@@ -5,3 +5,6 @@ models/__pycache__/
 app/__pycache__/
 app/static/scans/
 data/processed_slices/
+.idea/
+*.pth
+training_runs/

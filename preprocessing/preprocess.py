@@ -46,6 +46,7 @@ def process_and_save_slices(patient_folders, output_path, is_test=False):
     for patient_folder in tqdm(patient_folders, desc="Processing Patients"):
         try:
             tumor_type = 'GLI' if 'GLI' in patient_folder else 'MEN'
+            patient_id = os.path.basename(patient_folder)
             
             # Robustly find the ground truth file
             seg_path = find_file_by_substring(patient_folder, '-seg.nii.gz')
@@ -109,6 +110,9 @@ def process_and_save_slices(patient_folders, output_path, is_test=False):
 
                 type_filename = f"type_{slice_counter}.npy"
                 np.save(os.path.join(output_path, type_filename), np.array([0 if tumor_type == 'GLI' else 1]))
+
+                group_filename = f"group_{slice_counter}.npy"
+                np.save(os.path.join(output_path, group_filename), np.array([patient_id]))
 
                 slice_counter += 1
         except Exception as e:

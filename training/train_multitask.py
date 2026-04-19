@@ -3,13 +3,14 @@ import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import roc_auc_score, precision_recall_fscore_support, accuracy_score
+from sklearn.model_selection import GroupShuffleSplit
 
 # Add the project root to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,9 +19,13 @@ from models.model import build_model
 from models.classifier import build_classifier
 
 class TumorDataset(torch.utils.data.Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, slice_ids=None):
         self.data_dir = data_dir
-        self.slice_files = sorted([f for f in os.listdir(data_dir) if f.startswith('slice_')])
+        all_files = sorted([f for f in os.listdir(data_dir) if f.startswith('slice_')])
+        if slice_ids is None:
+            self.slice_files = all_files
+        else:
+            self.slice_files = [f"slice_{slice_id}.npy" for slice_id in slice_ids]
 
     def __len__(self):
         return len(self.slice_files)
@@ -43,12 +48,29 @@ class TumorDataset(torch.utils.data.Dataset):
 
         return slice_tensor, label_tensor, type_tensor
 
+
+def load_groups(data_dir, slice_ids):
+    groups = []
+    for slice_id in slice_ids:
+        group_path = os.path.join(data_dir, f"group_{slice_id}.npy")
+        if os.path.exists(group_path):
+            groups.append(str(np.load(group_path, allow_pickle=True)[0]))
+        else:
+            groups.append(f"slice-{slice_id}")
+    return np.array(groups)
+
 def dice_loss(pred, target, smooth=1.):
     pred = torch.sigmoid(pred)
     pred = pred.view(-1)
     target = target.view(-1)
     intersection = (pred * target).sum()
     return 1 - ((2. * intersection + smooth) / (pred.sum() + target.sum() + smooth))
+
+
+def combined_seg_loss(pred, target, pos_weight):
+    dice = dice_loss(pred, target)
+    bce = nn.functional.binary_cross_entropy_with_logits(pred, target, pos_weight=pos_weight)
+    return 0.6 * dice + 0.4 * bce
 
 def calculate_seg_metrics(pred, target):
     pred = torch.sigmoid(pred) > 0.5
@@ -87,22 +109,50 @@ def train_multitask(data_dir, epochs=5, batch_size=32, learning_rate=1e-4):
     os.makedirs(run_dir, exist_ok=True)
     print(f"Training run results will be saved in: {run_dir}")
 
-    seg_model = build_model(in_channels=4, n_class=1).to(device)
-    cls_model = build_classifier(in_channels=4, num_classes=2).to(device)
+    seg_model = build_model(in_channels=4, n_class=1, variant="enhanced").to(device)
+    cls_model = build_classifier(in_channels=4, num_classes=2, variant="enhanced").to(device)
+
+    slice_ids = sorted([
+        int(f.split('_')[1].split('.')[0])
+        for f in os.listdir(data_dir)
+        if f.startswith('slice_') and f.endswith('.npy')
+    ])
+    groups = load_groups(data_dir, slice_ids)
+    splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    train_idx, val_idx = next(splitter.split(slice_ids, groups=groups))
+    train_slice_ids = [slice_ids[i] for i in train_idx]
+    val_slice_ids = [slice_ids[i] for i in val_idx]
 
     dataset = TumorDataset(data_dir)
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    train_dataset = TumorDataset(data_dir, train_slice_ids)
+    val_dataset = TumorDataset(data_dir, val_slice_ids)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    sampler_weights = []
+    tumor_pixels = 0
+    background_pixels = 0
+    for slice_id in train_slice_ids:
+        label = np.load(os.path.join(data_dir, f"label_{slice_id}.npy"))
+        tumor_pixels += int(label.sum())
+        background_pixels += int(label.size - label.sum())
+        slice_type = int(np.load(os.path.join(data_dir, f"type_{slice_id}.npy"))[0])
+        has_tumor = float(label.sum() > 0)
+        sampler_weights.append((6.0 if has_tumor else 1.0) * (2.0 if slice_type == 1 else 1.0))
+
+    pos_weight = torch.tensor([max(background_pixels / max(tumor_pixels, 1), 1.0)], device=device)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        sampler=WeightedRandomSampler(torch.DoubleTensor(sampler_weights), num_samples=len(sampler_weights), replacement=True),
+    )
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     params = list(seg_model.parameters()) + list(cls_model.parameters())
-    optimizer = optim.Adam(params, lr=learning_rate)
+    optimizer = optim.AdamW(params, lr=learning_rate, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(epochs, 1))
     
-    seg_criterion = dice_loss
-    cls_criterion = nn.CrossEntropyLoss()
+    seg_criterion = lambda pred, target: combined_seg_loss(pred, target, pos_weight)
+    cls_criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
 
     best_val_loss = float('inf')
     
@@ -125,6 +175,7 @@ def train_multitask(data_dir, epochs=5, batch_size=32, learning_rate=1e-4):
             total_loss.backward()
             optimizer.step()
             train_loss += total_loss.item()
+        scheduler.step()
 
         # Validation
         seg_model.eval()
