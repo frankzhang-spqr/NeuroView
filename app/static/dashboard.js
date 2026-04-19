@@ -1,3 +1,5 @@
+/* global THREE */
+
 const modalityMeta = {
     t1c: { label: "T1 Contrast", colorClass: "cyan", fullLabel: "T1 Contrast-Enhanced" },
     t1n: { label: "T1 Native", colorClass: "lilac", fullLabel: "T1 Native" },
@@ -36,11 +38,11 @@ fileInputs.forEach((input) => {
 });
 
 axisButtons.forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
         if (!state.results) {
             return;
         }
-        switchAxis(button.dataset.axis);
+        await switchAxis(button.dataset.axis);
     });
 });
 
@@ -97,26 +99,26 @@ document.getElementById("reset-dashboard").addEventListener("click", () => {
     syncUploadState();
 });
 
-document.getElementById("prev-slice").addEventListener("click", () => {
+document.getElementById("prev-slice").addEventListener("click", async () => {
     if (!state.results) {
         return;
     }
     state.selectedSliceIndex = Math.max(0, state.selectedSliceIndex - 1);
-    refreshCurrentSlice();
+    await refreshCurrentSlice();
 });
 
-document.getElementById("next-slice").addEventListener("click", () => {
+document.getElementById("next-slice").addEventListener("click", async () => {
     if (!state.results) {
         return;
     }
     const maxIndex = state.results.slice_counts[state.currentAxis] - 1;
     state.selectedSliceIndex = Math.min(maxIndex, state.selectedSliceIndex + 1);
-    refreshCurrentSlice();
+    await refreshCurrentSlice();
 });
 
-sliceSlider.addEventListener("input", (event) => {
+sliceSlider.addEventListener("input", async (event) => {
     state.selectedSliceIndex = Number(event.target.value);
-    refreshCurrentSlice();
+    await refreshCurrentSlice();
 });
 
 async function displayResults(results) {
@@ -280,10 +282,10 @@ function renderTumorSlices() {
         button.type = "button";
         button.className = `tumor-pill${sliceIndex === state.selectedSliceIndex ? " active" : ""}`;
         button.textContent = sliceIndex;
-        button.addEventListener("click", () => {
+        button.addEventListener("click", async () => {
             state.selectedSliceIndex = sliceIndex;
             configureSliceControls();
-            refreshCurrentSlice();
+            await refreshCurrentSlice();
         });
         tumorSlicesContainer.appendChild(button);
     });
@@ -366,10 +368,10 @@ function renderSliceStack() {
     }).join("");
 
     sliceStack.querySelectorAll("[data-slice-index]").forEach((node) => {
-        node.addEventListener("click", () => {
+        node.addEventListener("click", async () => {
             state.selectedSliceIndex = Number(node.dataset.sliceIndex);
             configureSliceControls();
-            refreshCurrentSlice();
+            await refreshCurrentSlice();
         });
     });
 }
@@ -477,7 +479,7 @@ function addBoundingBoxes(scene) {
 
 function createBBoxMarkup(bbox) {
     const [x, y, width, height] = bbox;
-    return `<div class="bbox" style="left:${x}px; top:${y}px; width:${width}px; height:${height}px;"></div>`;
+    return `<div class="bbox" style="left:${x}%; top:${y}%; width:${width}%; height:${height}%;"></div>`;
 }
 
 function renderEmptySliceGrid(message = "Awaiting data") {

@@ -44,12 +44,6 @@ def preprocess_slice(slice_img):
         resized_channels.append(np.array(Image.fromarray(slice_img[..., c]).resize((240, 240))))
     
     slice_img = np.stack(resized_channels, axis=-1)
-    
-    for c in range(slice_img.shape[-1]):
-        channel = slice_img[..., c]
-        min_val, max_val = np.min(channel), np.max(channel)
-        if max_val > min_val:
-            slice_img[..., c] = (channel - min_val) / (max_val - min_val)
 
     return torch.from_numpy(slice_img).float().permute(2, 0, 1).unsqueeze(0)
 
@@ -112,12 +106,20 @@ def build_slice_preview(img_data, mask_volume, axis, index, image_size=240):
     previews = []
 
     mask_slice = to_display_orientation(extract_axis_slice(mask_volume, axis, index))
-    resized_mask = np.array(
-        Image.fromarray((mask_slice > 0).astype(np.uint8) * 255, mode="L").resize(
-            (image_size, image_size), resample=Image.Resampling.NEAREST
-        )
-    ) > 0
-    bbox = get_bounding_box(resized_mask)
+    
+    raw_bbox = get_bounding_box(mask_slice)
+    if raw_bbox:
+        cmin, rmin, w, h = raw_bbox
+        h_total, w_total = mask_slice.shape
+        bbox = [
+            round(cmin / w_total * 100, 2),
+            round(rmin / h_total * 100, 2),
+            round(w / w_total * 100, 2),
+            round(h / h_total * 100, 2)
+        ]
+    else:
+        bbox = None
+        
     has_tumor = bool(np.any(mask_slice))
 
     for c, modality in enumerate(ordered_modalities):
@@ -206,6 +208,12 @@ async def predict(
 
     ordered_modalities = ["t1c", "t1n", "t2f", "t2w"]
     img_data = np.stack([modalities[mod] for mod in ordered_modalities], axis=-1)
+
+    for c in range(img_data.shape[-1]):
+        channel = img_data[..., c]
+        min_val, max_val = np.min(channel), np.max(channel)
+        if max_val > min_val:
+            img_data[..., c] = (channel - min_val) / (max_val - min_val)
 
     results = {
         "has_tumor": False,
