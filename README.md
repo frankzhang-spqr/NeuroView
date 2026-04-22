@@ -90,6 +90,14 @@ NeuroView is distributed as a multi-part installation package to ensure stabilit
 2. **Setup**: The user executes `Setup.bat`, which runs a PowerShell installation script.
 3. **Integration**: The script installs the app to the local AppData directory, creates Start Menu shortcuts, and registers the application for searchability.
 
+### Release Packaging
+
+`Installer.zip` should be published as a GitHub Release asset, not committed into the repository.
+
+- Local packaging is produced by `build_dist.ps1`.
+- GitHub Actions builds the installer on Windows and attaches `Installer.zip` to a published GitHub Release.
+- The repository should contain source code, packaging scripts, and release workflow files only.
+
 ---
 
 © 2026 NeuroView Team. All Rights Reserved.
