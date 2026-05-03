@@ -1,9 +1,9 @@
 import os
 import uuid
+import logging
 import numpy as np
 import nibabel as nib
-import torch
-from fastapi import FastAPI, File, UploadFile, Request, Query
+from fastapi import FastAPI, File, UploadFile, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -12,29 +12,57 @@ import base64
 import io
 from typing import Dict
 
-from models.model import build_model, infer_segmentation_variant
-from models.classifier import build_classifier, infer_classifier_variant
+SMOKE_TEST_MODE = os.getenv("NEUROVIEW_SMOKE_TEST", "").lower() in {"1", "true", "yes"}
+
+if not SMOKE_TEST_MODE:
+    import torch
+    from models.model import build_model, infer_segmentation_variant
+    from models.classifier import build_classifier, infer_classifier_variant
+else:
+    torch = None
 
 app = FastAPI()
+logger = logging.getLogger("neuroview.backend")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if torch is not None else None
+segmentation_model = None
+classifier_model = None
+model_load_error = None
 
-segmentation_state = torch.load("best_model.pth", map_location=device)
-segmentation_variant = infer_segmentation_variant(segmentation_state)
-segmentation_model = build_model(in_channels=4, n_class=1, variant=segmentation_variant)
-segmentation_model.load_state_dict(segmentation_state)
-segmentation_model.to(device)
-segmentation_model.eval()
 
-classifier_state = torch.load("best_classifier.pth", map_location=device)
-classifier_variant = infer_classifier_variant(classifier_state)
-classifier_model = build_classifier(in_channels=4, num_classes=2, variant=classifier_variant)
-classifier_model.load_state_dict(classifier_state)
-classifier_model.to(device)
-classifier_model.eval()
+def load_inference_models():
+    global segmentation_model, classifier_model, model_load_error
+
+    if SMOKE_TEST_MODE:
+        return
+
+    try:
+        segmentation_state = torch.load("best_model.pth", map_location=device)
+        segmentation_variant = infer_segmentation_variant(segmentation_state)
+        segmentation_model = build_model(in_channels=4, n_class=1, variant=segmentation_variant)
+        segmentation_model.load_state_dict(segmentation_state)
+        segmentation_model.to(device)
+        segmentation_model.eval()
+
+        classifier_state = torch.load("best_classifier.pth", map_location=device)
+        classifier_variant = infer_classifier_variant(classifier_state)
+        classifier_model = build_classifier(in_channels=4, num_classes=2, variant=classifier_variant)
+        classifier_model.load_state_dict(classifier_state)
+        classifier_model.to(device)
+        classifier_model.eval()
+    except Exception as exc:
+        model_load_error = str(exc)
+        logger.exception("Failed to load inference models")
+
+
+def models_available():
+    return segmentation_model is not None and classifier_model is not None
+
+
+load_inference_models()
 
 analysis_cache: Dict[str, dict] = {}
 
@@ -56,6 +84,16 @@ def preprocess_slice(slice_img):
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "ok" if (SMOKE_TEST_MODE or models_available()) else "degraded",
+        "mode": "smoke-test" if SMOKE_TEST_MODE else "desktop-app",
+        "models_loaded": models_available(),
+        "model_load_error": model_load_error,
+    }
 
 def get_bounding_box(mask):
     rows = np.any(mask, axis=1)
@@ -194,6 +232,14 @@ def get_tumor_slices_by_axis(mask_volume):
         "sagittal": [int(i) for i in np.where(np.any(mask_volume, axis=(1, 2)))[0].tolist()],
     }
 
+
+def validate_modality_shapes(modalities):
+    shapes = {name: tuple(volume.shape) for name, volume in modalities.items()}
+    unique_shapes = set(shapes.values())
+    if len(unique_shapes) != 1:
+        details = ", ".join(f"{name}={shape}" for name, shape in shapes.items())
+        raise HTTPException(status_code=400, detail=f"Uploaded modalities must share the same shape: {details}")
+
 @app.post("/predict")
 async def predict(
     t1c_file: UploadFile = File(...),
@@ -201,6 +247,12 @@ async def predict(
     t2f_file: UploadFile = File(...),
     t2w_file: UploadFile = File(...)
 ):
+    if not models_available():
+        detail = "Inference models are unavailable."
+        if model_load_error:
+            detail = f"{detail} {model_load_error}"
+        raise HTTPException(status_code=503, detail=detail)
+
     scans_dir = "app/static/scans"
     os.makedirs(scans_dir, exist_ok=True)
     
@@ -221,6 +273,8 @@ async def predict(
         modalities[name] = nib.load(file_path).get_fdata()
         if name == "t1c":
             scan_url = f"/static/scans/{file.filename}"
+
+    validate_modality_shapes(modalities)
 
     ordered_modalities = ["t1c", "t1n", "t2f", "t2w"]
     img_data = np.stack([modalities[mod] for mod in ordered_modalities], axis=-1)
@@ -342,13 +396,9 @@ async def volume_preview(
     scan_id: str,
     modality: str = Query(..., pattern="^(t1c|t1n|t2f|t2w)$"),
 ):
-    print(f"DEBUG: Volume preview request for scan_id={scan_id}, modality={modality}")
     cached = analysis_cache.get(scan_id)
     if cached is None:
-        print(f"DEBUG: Cache MISS for scan_id={scan_id}. Available IDs: {list(analysis_cache.keys())}")
         return JSONResponse({"error": "Scan session expired."}, status_code=404)
-
-    print(f"DEBUG: Cache HIT for scan_id={scan_id}")
 
     ordered_modalities = ["t1c", "t1n", "t2f", "t2w"]
     modality_index = ordered_modalities.index(modality)

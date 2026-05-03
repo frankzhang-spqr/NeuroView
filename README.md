@@ -52,8 +52,10 @@ Project data and artifacts:
 - `BraTS/`: raw source data location used by preprocessing
 - `data/processed_slices/`: generated slice dataset for training
 - `training_runs/`: local training outputs, checkpoints, CSV metrics, plots
-- `best_model.pth`: active segmentation weights used by inference
-- `best_classifier.pth`: active classifier weights used by inference
+- `best_model.pth`: local segmentation weights used by inference
+- `best_classifier.pth`: local classifier weights used by inference
+
+The large runtime checkpoints and training outputs are intentionally local artifacts and are ignored by Git.
 
 ## End-to-End Application Flow
 
@@ -100,6 +102,16 @@ Important implementation details:
 - the renderer only gets access to an explicit preload bridge
 - the app waits for `GET /` to return `200` before opening the window
 
+### Smoke Test Mode
+
+The backend also supports a lightweight smoke-test mode for CI and quick startup checks.
+
+- set `NEUROVIEW_SMOKE_TEST=1`
+- start the backend or run `python scripts/smoke_backend.py`
+- use `GET /health` to verify the backend and desktop UI shell can load without model weights
+
+This is intended for desktop-app startup validation, not inference validation.
+
 ### Preload Bridge
 
 The preload layer lives in `preload.js`.
@@ -137,6 +149,8 @@ At import time, the backend:
 - infers whether the classifier checkpoint is `legacy` or `enhanced`
 - builds the classifier
 - switches both models to `eval()` mode
+
+Those root-level checkpoint files are expected to exist locally for full inference runs; they are not meant to be committed to the repository.
 
 The backend also:
 
@@ -500,7 +514,7 @@ Artifacts:
 - `last_checkpoint.pth`
 - `segmentation_metrics.csv`
 
-The best model is written both into the run directory and to the repo root as `best_model.pth`.
+The best model is written both into the run directory and to the repo root as `best_model.pth` for local desktop inference use.
 
 ### 2. Classification Training
 
@@ -549,7 +563,7 @@ Artifacts:
 - `last_checkpoint.pth`
 - `classification_metrics.csv`
 
-The best classifier is also copied to the repo root as `best_classifier.pth`.
+The best classifier is also copied to the repo root as `best_classifier.pth` for local desktop inference use.
 
 ### 3. Multitask Training
 

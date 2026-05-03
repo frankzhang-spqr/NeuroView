@@ -9,4 +9,4 @@ matplotlib
 pandas
 fastapi
 uvicorn[standard]
-pyhton-multipart
+python-multipart
