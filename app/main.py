@@ -66,6 +66,14 @@ load_inference_models()
 
 analysis_cache: Dict[str, dict] = {}
 
+
+def render_template(request: Request, name: str, context: Dict | None = None):
+    template_context = {"request": request, **(context or {})}
+    try:
+        return templates.TemplateResponse(name=name, request=request, context=template_context)
+    except TypeError:
+        return templates.TemplateResponse(name, template_context)
+
 def preprocess_slice(slice_img):
     # slice_img is (H, W, 4) with values in [0, 1]
     # We must resize each channel individually and maintain float precision
@@ -83,7 +91,7 @@ def preprocess_slice(slice_img):
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return render_template(request, "index.html")
 
 
 @app.get("/health")
